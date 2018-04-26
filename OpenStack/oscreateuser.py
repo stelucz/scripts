@@ -49,6 +49,23 @@ parser.add_argument('-deo', help='Don\'t do endpoint override', action='store_tr
 parser.add_argument('-l', help='Users list. Format username email description. Selectable separator. One entry per row.')
 args, unknown = parser.parse_known_args()
 
+
+def grantroles(user, projects, roles):
+    projects = projects.replace(" ", "").split(',')
+    roles = roles.replace(" ", "").split(',')
+    for project in projects:
+        ksproj = keystone.projects.list(name=project)
+        if not ksproj:
+            print("Project with name " + project + " does not exist!")
+        else:
+            for role in roles:
+                ksrole = keystone.roles.list(name=role)
+                if not ksrole:
+                    print("Role with name " + role + " does not exist!")
+                else:
+                    ksgrant = keystone.roles.grant(role=ksrole[0], user=user, project=ksproj[0])
+
+
 try:
     username = os.environ['OS_USERNAME']
     password = os.environ['OS_PASSWORD']
@@ -82,6 +99,11 @@ if args.username and not args.l:
     try:
         ks = keystone.users.create(name=args.username, email=args.email, description=args.description,
                                    password=password)
+        pom = input("Grant roles to user/s on projects? [Y/n]: ")
+        if pom.lower() == 'y' or pom == '':
+            projects = input("Enter project/s separated with ',': ")
+            roles = input("Enter role/s separated with ',': ")
+            grantroles(ks, projects, roles)
         printuser(args.username, args.email, args.description, password)
     except Exception as e:
         print("Creation of user " + args.username + " failed: " + str(e))
@@ -91,6 +113,10 @@ elif args.l:
         print('Using users list from file: ' + args.l)
         list = open(args.l, mode='r')
         sep = input('Type separator between values: ')
+        pom = input("Grant roles to user/s on projects? [Y/n]: ")
+        if pom.lower() == 'y' or pom == '':
+            projects = input("Enter project/s separated with ',': ")
+            roles = input("Enter role/s separated with ',': ")
         for line in list:
             parsedline = line.strip('\n').split(sep)
             users.append(parsedline)
@@ -98,6 +124,8 @@ elif args.l:
             try:
                 ks = keystone.users.create(name=parsedline[0], email=parsedline[1], description=parsedline[2],
                                            password=password)
+                if pom.lower() == 'y' or pom == '':
+                    grantroles(ks, projects, roles)
                 printuser(parsedline[0], parsedline[1], parsedline[2], password)
             except Exception as e:
                 print("Creation of user " + parsedline[0] + " failed: " + str(e))
